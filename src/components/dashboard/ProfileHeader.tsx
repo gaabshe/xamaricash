@@ -1,7 +1,7 @@
-import React from 'react';
-import { User, Mail, Calendar, Settings as SettingsIcon } from 'lucide-react';
+import { User, Mail, Calendar, Settings as SettingsIcon, LogOut } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Link } from 'react-router-dom';
+import { supabase } from '../../lib/supabase';
 import type { UserProfile } from '../../types';
 
 interface ProfileHeaderProps {
@@ -10,6 +10,17 @@ interface ProfileHeaderProps {
 }
 
 export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ profile, loading }) => {
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error signing out', error);
+    }
+  };
+
   if (loading) {
     return (
       <div className="glass-card p-6 animate-pulse mb-8">
@@ -80,6 +91,13 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ profile, loading }
                 <SettingsIcon size={14} /> Edit Profile
               </button>
             </Link>
+
+            <button 
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 text-sm font-medium rounded-xl border border-red-500/20 transition-all"
+            >
+              <LogOut size={14} /> Sign Out
+            </button>
           </div>
         </div>
       </div>
