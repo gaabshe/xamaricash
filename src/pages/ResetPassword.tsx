@@ -27,14 +27,25 @@ export default function ResetPassword() {
   });
 
   useEffect(() => {
-    // Check if the user is actually on a password recovery flow
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      // Supabase automatically logs in the user implicitly when clicking the reset link
-      if (!session) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || session) {
+        // Safe to proceed
+      } else if (event === 'SIGNED_OUT') {
         toast.error('Invalid or expired password reset link');
         navigate('/login');
       }
     });
+    
+    // Also check initial session just in case event fired before subscribe
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      // If no session and no hash indicating recovery in progress, kick them
+      if (!session && !window.location.hash.includes('type=recovery')) {
+        toast.error('Invalid or expired password reset link');
+        navigate('/login');
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, [navigate]);
 
   const onSubmit = async (data: FormData) => {
