@@ -1,68 +1,101 @@
--- Enable UUID extension
-create extension if not exists "uuid-ossp";
+-- XAMARICASH MASTER SCHEMA
+-- Consolidated setup for Users, Books, and Transactions with RLS
 
--- USERS TABLE
-create table public.users (
-  id uuid references auth.users on delete cascade not null primary key,
-  email text,
-  display_name text,
-  default_currency text default 'USD',
-  theme text default 'dark',
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+-- 1. Enable UUID Extension
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- 2. USERS TABLE (Public Profile)
+CREATE TABLE IF NOT EXISTS public.users (
+  id uuid REFERENCES auth.users ON DELETE CASCADE NOT NULL PRIMARY KEY,
+  email TEXT,
+  display_name TEXT,
+  avatar_url TEXT,
+  bio TEXT,
+  default_currency TEXT DEFAULT 'USD',
+  theme TEXT DEFAULT 'dark',
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- Set up Row Level Security (RLS) for users
-alter table public.users enable row level security;
-create policy "Users can view own profile" on users for select using (auth.uid() = id);
-create policy "Users can update own profile" on users for update using (auth.uid() = id);
-create policy "Users can insert own profile" on users for insert with check (auth.uid() = id);
+-- Enable RLS for Users
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
--- BOOKS TABLE
-create table public.books (
-  id uuid default uuid_generate_v4() primary key,
-  user_id uuid references public.users(id) on delete cascade not null,
-  name text not null,
-  description text,
-  currency text default 'USD',
-  color_theme text,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+-- Drop existing policies to avoid conflicts on rerun
+DO $$ BEGIN
+    DROP POLICY IF EXISTS "Users can view own profile" ON public.users;
+    DROP POLICY IF EXISTS "Users can update own profile" ON public.users;
+    DROP POLICY IF EXISTS "Users can insert own profile" ON public.users;
+EXCEPTION WHEN undefined_object THEN null; END $$;
+
+CREATE POLICY "Users can view own profile" ON public.users FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can update own profile" ON public.users FOR UPDATE USING (auth.uid() = id);
+CREATE POLICY "Users can insert own profile" ON public.users FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- 3. BOOKS TABLE 
+CREATE TABLE IF NOT EXISTS public.books (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id uuid REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  currency TEXT DEFAULT 'USD',
+  color_theme TEXT,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-alter table public.books enable row level security;
-create policy "Users can view own books" on books for select using (auth.uid() = user_id);
-create policy "Users can insert own books" on books for insert with check (auth.uid() = user_id);
-create policy "Users can update own books" on books for update using (auth.uid() = user_id);
-create policy "Users can delete own books" on books for delete using (auth.uid() = user_id);
+ALTER TABLE public.books ENABLE ROW LEVEL SECURITY;
 
--- TRANSACTIONS TABLE
-create table public.transactions (
-  id uuid default uuid_generate_v4() primary key,
-  book_id uuid references public.books(id) on delete cascade not null,
-  user_id uuid references public.users(id) on delete cascade not null,
-  amount numeric(10,2) not null,
-  type text not null check (type in ('Income', 'Expense')),
-  category text not null,
-  date date not null,
-  description text not null,
-  created_at timestamp with time zone default timezone('utc'::text, now()) not null
+DO $$ BEGIN
+    DROP POLICY IF EXISTS "Users can view own books" ON public.books;
+    DROP POLICY IF EXISTS "Users can insert own books" ON public.books;
+    DROP POLICY IF EXISTS "Users can update own books" ON public.books;
+    DROP POLICY IF EXISTS "Users can delete own books" ON public.books;
+EXCEPTION WHEN undefined_object THEN null; END $$;
+
+CREATE POLICY "Users can view own books" ON public.books FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own books" ON public.books FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own books" ON public.books FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own books" ON public.books FOR DELETE USING (auth.uid() = user_id);
+
+-- 4. TRANSACTIONS TABLE
+CREATE TABLE IF NOT EXISTS public.transactions (
+  id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
+  book_id uuid REFERENCES public.books(id) ON DELETE CASCADE NOT NULL,
+  user_id uuid REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  amount NUMERIC(10,2) NOT NULL,
+  type TEXT NOT NULL CHECK (type IN ('Income', 'Expense')),
+  category TEXT NOT NULL,
+  date DATE NOT NULL,
+  description TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
-alter table public.transactions enable row level security;
-create policy "Users can view own transactions" on transactions for select using (auth.uid() = user_id);
-create policy "Users can insert own transactions" on transactions for insert with check (auth.uid() = user_id);
-create policy "Users can update own transactions" on transactions for update using (auth.uid() = user_id);
-create policy "Users can delete own transactions" on transactions for delete using (auth.uid() = user_id);
+ALTER TABLE public.transactions ENABLE ROW LEVEL SECURITY;
 
--- Create a trigger to automatically create a user profile when a new auth user signs up
-create or replace function public.handle_new_user() 
-returns trigger as $$
-begin
-  insert into public.users (id, email, display_name)
-  values (new.id, new.email, new.raw_user_meta_data->>'display_name');
-  return new;
-end;
-$$ language plpgsql security definer;
+DO $$ BEGIN
+    DROP POLICY IF EXISTS "Users can view own transactions" ON public.transactions;
+    DROP POLICY IF EXISTS "Users can insert own transactions" ON public.transactions;
+    DROP POLICY IF EXISTS "Users can update own transactions" ON public.transactions;
+    DROP POLICY IF EXISTS "Users can delete own transactions" ON public.transactions;
+EXCEPTION WHEN undefined_object THEN null; END $$;
 
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute procedure public.handle_new_user();
+CREATE POLICY "Users can view own transactions" ON public.transactions FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own transactions" ON public.transactions FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own transactions" ON public.transactions FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own transactions" ON public.transactions FOR DELETE USING (auth.uid() = user_id);
+
+-- 5. AUTH SYNC TRIGGER
+-- Automatically creates a public.users row when a new Auth user signs up
+CREATE OR REPLACE FUNCTION public.handle_new_user() 
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.users (id, email, display_name)
+  VALUES (new.id, new.email, new.raw_user_meta_data->>'display_name');
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Cleanup existing trigger before recreate
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
