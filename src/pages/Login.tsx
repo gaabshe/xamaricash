@@ -69,6 +69,12 @@ export default function Login() {
               {...register('password')}
               error={errors.password?.message}
             />
+
+            <div className="flex justify-end -mt-2">
+              <Link to="/forgot-password" className="text-sm text-purple-400 hover:text-purple-300 font-medium transition-colors">
+                Forgot password?
+              </Link>
+            </div>
             
             <div className="pt-2">
               <Button type="submit" isLoading={isLoading} className="w-full shadow-lg shadow-purple-500/20">
