@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useForm } from 'react-form';
+import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { supabase } from '../lib/supabase';
@@ -8,7 +8,6 @@ import { Input } from '../components/ui/Input';
 import { Button } from '../components/ui/Button';
 import toast from 'react-hot-toast';
 import { Wallet } from 'lucide-react';
-import { useForm as useRhfForm } from 'react-hook-form';
 
 const schema = yup.object({
   email: yup.string().email('Invalid email address').required('Email is required'),
@@ -20,7 +19,7 @@ type FormData = yup.InferType<typeof schema>;
 export default function Login() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { register, handleSubmit, formState: { errors } } = useRhfForm<FormData>({
+  const { register, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: yupResolver(schema)
   });
 
