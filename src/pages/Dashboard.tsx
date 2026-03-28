@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { AppLayout } from '../components/layout/AppLayout';
 import { useAuthStore } from '../stores/authStore';
 import { supabase } from '../lib/supabase';
-import type { Transaction, Book } from '../types';
+import { ProfileHeader } from '../components/dashboard/ProfileHeader';
+import type { Transaction, Book, UserProfile } from '../types';
 import { ExpensePieChart } from '../components/dashboard/ExpensePieChart';
 import { WeeklyBarChart } from '../components/dashboard/WeeklyBarChart';
 import { RecentTransactions } from '../components/dashboard/RecentTransactions';
@@ -11,6 +12,7 @@ import toast from 'react-hot-toast';
 
 export default function Dashboard() {
   const { user } = useAuthStore();
+  const [profile, setProfile] = useState<UserProfile | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [books, setBooks] = useState<Book[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -19,11 +21,13 @@ export default function Dashboard() {
     if (!user) return;
     
     const fetchData = async () => {
-      const [booksRes, txsRes] = await Promise.all([
+      const [profileRes, booksRes, txsRes] = await Promise.all([
+        supabase.from('users').select('*').eq('id', user.id).single(),
         supabase.from('books').select('*').eq('user_id', user.id),
         supabase.from('transactions').select('*').eq('user_id', user.id).order('date', { ascending: false })
       ]);
       
+      if (profileRes.data) setProfile(profileRes.data);
       if (booksRes.data) setBooks(booksRes.data);
       if (txsRes.data) setTransactions(txsRes.data);
       
@@ -67,6 +71,8 @@ export default function Dashboard() {
 
   return (
     <AppLayout>
+      <ProfileHeader profile={profile} loading={isLoading} />
+      
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-white mb-2">Overview</h1>
         <p className="text-white/60">Welcome back, {user?.user_metadata?.display_name || 'User'}! Here's your financial summary.</p>

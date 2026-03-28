@@ -4,6 +4,8 @@ export interface UserProfile {
   display_name: string;
   default_currency: string;
   theme: string;
+  avatar_url?: string;
+  bio?: string;
 }
 
 export interface Book {

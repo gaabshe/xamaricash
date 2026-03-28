@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AppLayout } from '../components/layout/AppLayout';
 import { useAuthStore } from '../stores/authStore';
 import { useBookStore } from '../stores/bookStore';
@@ -15,24 +15,50 @@ export default function Settings() {
   const { transactions } = useTransactionStore();
   
   const [displayName, setDisplayName] = useState(user?.user_metadata?.display_name || '');
+  const [bio, setBio] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [isUpdating, setIsUpdating] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    const fetchProfile = async () => {
+      const { data } = await supabase.from('users').select('*').eq('id', user.id).single();
+      if (data) {
+        setDisplayName(data.display_name || '');
+        setBio(data.bio || '');
+        setAvatarUrl(data.avatar_url || '');
+      }
+    };
+    fetchProfile();
+  }, [user]);
 
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     setIsUpdating(true);
     try {
-      const updates: any = {};
+      const authUpdates: any = {};
       if (displayName !== user.user_metadata?.display_name) {
-        updates.data = { display_name: displayName };
+        authUpdates.data = { display_name: displayName };
       }
       if (newPassword) {
-        updates.password = newPassword;
+        authUpdates.password = newPassword;
       }
       
-      const { error } = await supabase.auth.updateUser(updates);
-      if (error) throw error;
+      if (Object.keys(authUpdates).length > 0) {
+        const { error } = await supabase.auth.updateUser(authUpdates);
+        if (error) throw error;
+      }
+
+      // Update public.users table for bio and avatar
+      const { error: profileError } = await supabase.from('users').update({
+        display_name: displayName,
+        bio: bio,
+        avatar_url: avatarUrl
+      }).eq('id', user.id);
+      
+      if (profileError) throw profileError;
       
       toast.success('Profile updated successfully');
       setNewPassword('');
@@ -98,6 +124,21 @@ export default function Settings() {
               label="Display Name" 
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
+            />
+            <div className="flex flex-col gap-1 w-full">
+              <label className="text-sm font-medium text-white/80 ml-1">Profile Bio</label>
+              <textarea 
+                className="glass-input w-full min-h-[100px] resize-none" 
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Tell us a bit about yourself..."
+              />
+            </div>
+            <Input 
+              label="Avatar URL" 
+              value={avatarUrl}
+              onChange={(e) => setAvatarUrl(e.target.value)}
+              placeholder="https://example.com/avatar.png"
             />
             <Input 
               label="Email Address" 
