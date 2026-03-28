@@ -6,6 +6,7 @@ export interface UserProfile {
   theme: string;
   avatar_url?: string;
   bio?: string;
+  created_at?: string;
 }
 
 export interface Book {

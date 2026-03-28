@@ -1,5 +1,6 @@
 import React from 'react';
-import { User, Mail, Settings as SettingsIcon } from 'lucide-react';
+import { User, Mail, Calendar, Settings as SettingsIcon } from 'lucide-react';
+import { format } from 'date-fns';
 import { Link } from 'react-router-dom';
 import type { UserProfile } from '../../types';
 
@@ -60,6 +61,10 @@ export const ProfileHeader: React.FC<ProfileHeaderProps> = ({ profile, loading }
             <div className="flex items-center justify-center md:justify-start gap-2">
               <User size={14} className="text-pink-400" />
               <span className="text-sm">Currency: {profile.default_currency}</span>
+            </div>
+            <div className="flex items-center justify-center md:justify-start gap-2">
+              <Calendar size={14} className="text-blue-400" />
+              <span className="text-sm">Joined: {profile.created_at ? format(new Date(profile.created_at), 'MMMM yyyy') : 'Recently'}</span>
             </div>
           </div>
 

@@ -7,7 +7,8 @@ create table public.users (
   email text,
   display_name text,
   default_currency text default 'USD',
-  theme text default 'dark'
+  theme text default 'dark',
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
 -- Set up Row Level Security (RLS) for users
